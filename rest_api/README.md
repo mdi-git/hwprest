@@ -1,6 +1,6 @@
 # rhwp REST API
 
-`rhwp` CLI를 감싸는 별도 FastAPI 서버입니다.
+`rhwp` 변환 엔진을 FastAPI로 감싼 서버입니다.
 
 ## 엔드포인트
 
@@ -10,77 +10,43 @@
 - `POST /to_text`
 - `POST /to_md`
 - `GET /health`
+- `GET /docs`
+- `GET /test`
 
-모든 변환 엔드포인트는 `multipart/form-data` 업로드를 사용합니다.
+모든 변환 API는 `multipart/form-data`로 `file` 필드를 받습니다.
 
-- 필수 필드: `file`
-- 선택 필드: `page`
-- `to_png` 추가 선택 필드: `scale`, `max_dimension`, `dpi`, `vlm_target`
+## 권장 실행: 단일 Docker 이미지
 
-## 동작 방식
-
-- 기본적으로 내부에서 `cargo run --release --manifest-path ../rhwp/Cargo.toml -- ...`를 실행합니다.
-- `/to_png`는 `native-skia`가 필요하므로 내부적으로 `--features native-skia`를 붙입니다.
-- 단일 결과물은 원본 파일로 응답합니다.
-- 여러 페이지 결과물은 `.zip`으로 묶어 응답합니다.
-- `/to_md`는 이미지 에셋 디렉토리가 생길 수 있으므로 항상 `.zip`으로 응답합니다.
-
-## 실행
+프로젝트 루트에서:
 
 ```bash
+docker build -t hwprest:latest .
+docker run --rm -p 8001:8001 hwprest:latest
+```
+
+접속:
+
+- Swagger: `http://localhost:8001/docs`
+- 테스트 페이지: `http://localhost:8001/test`
+
+## 로컬 실행
+
+```bash
+cd /home/youlsa/hwp_converter/rhwp
+. "$HOME/.cargo/env"
+cargo build --release --features native-skia --target-dir /tmp/rhwp-target
+
 cd /home/youlsa/hwp_converter/rest_api
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app:app --host 0.0.0.0 --port 8000
+
+RHWP_CMD=/tmp/rhwp-target/release/rhwp \
+RHWP_CMD_NATIVE_SKIA=/tmp/rhwp-target/release/rhwp \
+uvicorn app:app --host 0.0.0.0 --port 8001
 ```
 
-Swagger UI:
+## 참고
 
-```text
-http://localhost:8000/docs
-```
-
-## 환경변수
-
-- `RHWP_CMD`
-  - 기본 변환 명령 전체를 덮어씁니다.
-  - 예: `RHWP_CMD="/path/to/rhwp"`
-- `RHWP_PNG_CMD`
-  - PNG 변환 명령 전체를 덮어씁니다.
-  - 예: `RHWP_PNG_CMD="/path/to/rhwp"`
-- `RHWP_CMD_NATIVE_SKIA`
-  - `RHWP_PNG_CMD`가 없을 때 PNG 전용 명령을 덮어씁니다.
-
-사전 빌드된 바이너리를 쓰고 싶다면 예를 들어:
-
-```bash
-export RHWP_CMD="/home/youlsa/hwp_converter/rhwp/target/release/rhwp"
-export RHWP_PNG_CMD="/home/youlsa/hwp_converter/rhwp/target/release/rhwp"
-```
-
-단, PNG는 해당 바이너리가 `native-skia` feature로 빌드되어 있어야 합니다.
-
-## 예시
-
-```bash
-curl -X POST \
-  -F "file=@sample.hwp" \
-  http://localhost:8000/to_pdf \
-  -o sample.pdf
-```
-
-```bash
-curl -X POST \
-  -F "file=@sample.hwp" \
-  -F "page=0" \
-  http://localhost:8000/to_svg \
-  -o sample.svg
-```
-
-```bash
-curl -X POST \
-  -F "file=@sample.hwp" \
-  http://localhost:8000/to_png \
-  -o sample_png.zip
-```
+- `png`, `md`는 결과가 여러 파일이면 zip으로 응답됩니다.
+- `/test` UI는 zip 응답을 `.zip` 확장자로 저장하도록 처리되어 있습니다.

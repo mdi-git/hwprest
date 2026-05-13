@@ -1,0 +1,11 @@
+.git
+.gitmodules
+
+**/__pycache__/
+**/*.pyc
+
+.venv
+rest_api/.venv
+
+rhwp/target
+rhwp/pkg
