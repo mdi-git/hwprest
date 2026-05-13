@@ -371,7 +371,7 @@ def test_page() -> str:
         const blob = await response.blob();
         const disposition = response.headers.get("content-disposition");
         const fallbackExt = type === "txt" ? "txt" : type;
-        const fallbackName = `${file.name.replace(/\.[^.]+$/, "")}.${fallbackExt}`;
+        const fallbackName = `${file.name.replace(/\\.[^.]+$/, "")}.${fallbackExt}`;
         const downloadName = getFilename(disposition, fallbackName);
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
@@ -562,7 +562,6 @@ def to_md(
             media_type_single="text/markdown; charset=utf-8",
             suffix_single=".md",
             cleanup_dir=tmpdir,
-            always_zip=True,
         )
     except Exception:
         _cleanup_tmpdir(tmpdir)
