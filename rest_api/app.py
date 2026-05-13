@@ -370,9 +370,14 @@ def test_page() -> str:
 
         const blob = await response.blob();
         const disposition = response.headers.get("content-disposition");
-        const fallbackExt = type === "txt" ? "txt" : type;
+        const contentType = (response.headers.get("content-type") || "").toLowerCase();
+        const isZip = contentType.includes("application/zip");
+        const fallbackExt = isZip ? "zip" : (type === "txt" ? "txt" : type);
         const fallbackName = `${file.name.replace(/\\.[^.]+$/, "")}.${fallbackExt}`;
-        const downloadName = getFilename(disposition, fallbackName);
+        let downloadName = getFilename(disposition, fallbackName);
+        if (isZip && !downloadName.toLowerCase().endsWith(".zip")) {
+          downloadName = `${downloadName}.zip`;
+        }
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
