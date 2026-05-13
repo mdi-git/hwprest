@@ -23,7 +23,24 @@ RHWP_MANIFEST = RHWP_ROOT / "Cargo.toml"
 app = FastAPI(
     title="rhwp REST API",
     version="0.1.0",
-    description="FastAPI wrapper around the rhwp CLI.",
+    description=(
+        "rhwp 기반 HWP/HWPX 변환 API입니다.\n\n"
+        "## 공통 동작\n"
+        "- 모든 변환 API는 `multipart/form-data` 업로드를 사용합니다.\n"
+        "- 필수 필드: `file`\n"
+        "- 선택 필드: `page` (0부터 시작, 미지정 시 전체 페이지)\n"
+        "- 결과 파일이 1개면 원본 확장자로 응답합니다.\n"
+        "- 결과 파일이 여러 개면 자동으로 `.zip`으로 묶어 응답합니다.\n\n"
+        "## 변환 엔드포인트\n"
+        "- `/to_pdf`: PDF 변환\n"
+        "- `/to_png`: PNG 변환 (native-skia 경로)\n"
+        "- `/to_svg`: SVG 변환\n"
+        "- `/to_text`: TXT 변환\n"
+        "- `/to_md`: Markdown 변환\n\n"
+        "## 기타\n"
+        "- `/test`: 브라우저 업로드 테스트 페이지\n"
+        "- `/health`: 서버 상태 확인"
+    ),
 )
 
 
@@ -162,12 +179,27 @@ def _cleanup_tmpdir(tmpdir: Path) -> None:
     shutil.rmtree(tmpdir, ignore_errors=True)
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    tags=["시스템"],
+    summary="헬스 체크",
+    description="서버 프로세스가 정상 동작 중인지 확인합니다.",
+)
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.get("/test", response_class=HTMLResponse)
+@app.get(
+    "/test",
+    response_class=HTMLResponse,
+    tags=["시스템"],
+    summary="업로드 테스트 페이지",
+    description=(
+        "브라우저에서 `.hwp`/`.hwpx` 파일을 업로드하고 변환 API를 직접 호출할 수 있는 테스트 UI를 반환합니다.\n"
+        "- 선택 타입: `pdf`, `png`, `svg`, `md`, `txt`\n"
+        "- zip 응답일 경우 다운로드 확장자를 `.zip`으로 보정합니다."
+    ),
+)
 def test_page() -> str:
     return """<!DOCTYPE html>
 <html lang="ko">
@@ -400,10 +432,28 @@ def test_page() -> str:
 """
 
 
-@app.post("/to_pdf")
+@app.post(
+    "/to_pdf",
+    tags=["변환"],
+    summary="HWP/HWPX -> PDF",
+    description=(
+        "업로드한 문서를 PDF로 변환합니다.\n"
+        "- `page` 미지정: 전체 페이지 PDF\n"
+        "- `page` 지정: 특정 페이지 1장만 PDF로 출력\n"
+        "- 응답: `application/pdf`"
+    ),
+    response_description="변환된 PDF 파일",
+)
 def to_pdf(
-    file: UploadFile = File(...),
-    page: int | None = Form(default=None),
+    file: UploadFile = File(
+        ...,
+        description="변환할 HWP/HWPX 파일 (`.hwp`, `.hwpx`)",
+    ),
+    page: int | None = Form(
+        default=None,
+        ge=0,
+        description="0부터 시작하는 페이지 번호. 미지정 시 전체 페이지를 변환합니다.",
+    ),
 ) -> FileResponse:
     tmpdir = Path(tempfile.mkdtemp(prefix="rhwp_api_pdf_"))
     try:
@@ -433,14 +483,51 @@ def to_pdf(
         raise
 
 
-@app.post("/to_png")
+@app.post(
+    "/to_png",
+    tags=["변환"],
+    summary="HWP/HWPX -> PNG",
+    description=(
+        "업로드한 문서를 PNG로 변환합니다.\n"
+        "- `page` 미지정: 전체 페이지를 각각 PNG로 생성\n"
+        "- `page` 지정: 특정 페이지 1장만 PNG로 생성\n"
+        "- 결과 파일이 여러 개면 `.zip`으로 응답\n"
+        "- native-skia 경로를 사용합니다."
+    ),
+    response_description="변환된 PNG 파일(단일) 또는 ZIP 파일(다중)",
+)
 def to_png(
-    file: UploadFile = File(...),
-    page: int | None = Form(default=None),
-    scale: float | None = Form(default=None),
-    max_dimension: int | None = Form(default=None),
-    dpi: float | None = Form(default=None),
-    vlm_target: str | None = Form(default=None),
+    file: UploadFile = File(
+        ...,
+        description="변환할 HWP/HWPX 파일 (`.hwp`, `.hwpx`)",
+    ),
+    page: int | None = Form(
+        default=None,
+        ge=0,
+        description="0부터 시작하는 페이지 번호. 미지정 시 전체 페이지를 변환합니다.",
+    ),
+    scale: float | None = Form(
+        default=None,
+        gt=0,
+        description="렌더링 배율(예: `1.0`, `2.0`). 미지정 시 기본값 사용.",
+    ),
+    max_dimension: int | None = Form(
+        default=None,
+        gt=0,
+        description="긴 변 최대 픽셀 크기. 미지정 시 제한 없이 출력합니다.",
+    ),
+    dpi: float | None = Form(
+        default=None,
+        gt=0,
+        description="출력 DPI 메타데이터 값입니다.",
+    ),
+    vlm_target: str | None = Form(
+        default=None,
+        description=(
+            "VLM 타깃 프리셋. 예: `claude`, `gpt4v-low`, `gpt4v-high`, "
+            "`gemini`, `qwen-vl`, `llava`"
+        ),
+    ),
 ) -> FileResponse:
     extra_args: list[str] = []
     if scale is not None:
@@ -480,10 +567,28 @@ def to_png(
         raise
 
 
-@app.post("/to_svg")
+@app.post(
+    "/to_svg",
+    tags=["변환"],
+    summary="HWP/HWPX -> SVG",
+    description=(
+        "업로드한 문서를 SVG로 변환합니다.\n"
+        "- `page` 미지정: 전체 페이지를 각각 SVG로 생성\n"
+        "- `page` 지정: 특정 페이지 1장만 SVG로 생성\n"
+        "- 결과 파일이 여러 개면 `.zip`으로 응답"
+    ),
+    response_description="변환된 SVG 파일(단일) 또는 ZIP 파일(다중)",
+)
 def to_svg(
-    file: UploadFile = File(...),
-    page: int | None = Form(default=None),
+    file: UploadFile = File(
+        ...,
+        description="변환할 HWP/HWPX 파일 (`.hwp`, `.hwpx`)",
+    ),
+    page: int | None = Form(
+        default=None,
+        ge=0,
+        description="0부터 시작하는 페이지 번호. 미지정 시 전체 페이지를 변환합니다.",
+    ),
 ) -> FileResponse:
     tmpdir = Path(tempfile.mkdtemp(prefix="rhwp_api_svg_"))
     try:
@@ -511,10 +616,28 @@ def to_svg(
         raise
 
 
-@app.post("/to_text")
+@app.post(
+    "/to_text",
+    tags=["변환"],
+    summary="HWP/HWPX -> TXT",
+    description=(
+        "업로드한 문서를 텍스트(`.txt`)로 변환합니다.\n"
+        "- `page` 미지정: 전체 페이지를 각각 TXT로 생성\n"
+        "- `page` 지정: 특정 페이지 1장만 TXT로 생성\n"
+        "- 결과 파일이 여러 개면 `.zip`으로 응답"
+    ),
+    response_description="변환된 TXT 파일(단일) 또는 ZIP 파일(다중)",
+)
 def to_text(
-    file: UploadFile = File(...),
-    page: int | None = Form(default=None),
+    file: UploadFile = File(
+        ...,
+        description="변환할 HWP/HWPX 파일 (`.hwp`, `.hwpx`)",
+    ),
+    page: int | None = Form(
+        default=None,
+        ge=0,
+        description="0부터 시작하는 페이지 번호. 미지정 시 전체 페이지를 변환합니다.",
+    ),
 ) -> FileResponse:
     tmpdir = Path(tempfile.mkdtemp(prefix="rhwp_api_text_"))
     try:
@@ -542,10 +665,28 @@ def to_text(
         raise
 
 
-@app.post("/to_md")
+@app.post(
+    "/to_md",
+    tags=["변환"],
+    summary="HWP/HWPX -> Markdown",
+    description=(
+        "업로드한 문서를 Markdown으로 변환합니다.\n"
+        "- `page` 미지정: 전체 페이지를 각각 MD로 생성\n"
+        "- `page` 지정: 특정 페이지 1장만 MD로 생성\n"
+        "- 이미지/에셋이 함께 생성될 수 있으므로 다중 결과 시 `.zip`으로 응답"
+    ),
+    response_description="변환된 MD 파일(단일) 또는 ZIP 파일(다중)",
+)
 def to_md(
-    file: UploadFile = File(...),
-    page: int | None = Form(default=None),
+    file: UploadFile = File(
+        ...,
+        description="변환할 HWP/HWPX 파일 (`.hwp`, `.hwpx`)",
+    ),
+    page: int | None = Form(
+        default=None,
+        ge=0,
+        description="0부터 시작하는 페이지 번호. 미지정 시 전체 페이지를 변환합니다.",
+    ),
 ) -> FileResponse:
     tmpdir = Path(tempfile.mkdtemp(prefix="rhwp_api_md_"))
     try:
