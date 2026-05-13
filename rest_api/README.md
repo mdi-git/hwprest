@@ -24,6 +24,8 @@ docker build -t hwprest:latest .
 docker run --rm -p 8001:8001 hwprest:latest
 ```
 
+이 단일 이미지에는 한글 폰트 패키지와 `rhwp/web/fonts` 자산을 함께 포함하고 `fc-cache`를 생성합니다.
+
 접속:
 
 - Swagger: `http://localhost:8001/docs`
@@ -50,3 +52,4 @@ uvicorn app:app --host 0.0.0.0 --port 8001
 
 - `png`, `md`는 결과가 여러 파일이면 zip으로 응답됩니다.
 - `/test` UI는 zip 응답을 `.zip` 확장자로 저장하도록 처리되어 있습니다.
+- 폰트 깨짐이 보이면 `docker build --no-cache -t hwprest:latest .`로 재빌드 후 재실행하세요.

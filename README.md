@@ -22,6 +22,8 @@ docker build -t hwprest:latest .
 docker run --rm -p 8001:8001 hwprest:latest
 ```
 
+이미지에는 한글 렌더링용 폰트(`Noto CJK`, `Nanum`, `Unfonts`)를 내장하고 `fc-cache`를 생성합니다.
+
 접속:
 
 - `http://localhost:8001/docs`
@@ -74,3 +76,4 @@ curl -X POST \
 
 - `png`, `md`는 결과가 여러 파일이면 zip으로 응답됩니다.
 - `/test` 페이지는 zip 응답을 `.zip` 확장자로 다운로드하도록 보정되어 있습니다.
+- 폰트가 깨질 때는 `docker build --no-cache -t hwprest:latest .`로 이미지 재빌드를 먼저 수행하세요.

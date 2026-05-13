@@ -8,6 +8,9 @@ RUN apt-get update \
         clang \
         libfontconfig1-dev \
         libfreetype6-dev \
+        fonts-noto-cjk \
+        fonts-nanum \
+        fonts-unfonts-core \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,6 +18,10 @@ WORKDIR /app
 
 COPY rhwp /app/rhwp
 COPY rest_api /app/rest_api
+
+RUN mkdir -p /usr/local/share/fonts/rhwp \
+    && cp -a /app/rhwp/web/fonts/. /usr/local/share/fonts/rhwp/ \
+    && fc-cache -f -v
 
 RUN cd /app/rhwp \
     && cargo build --release --features native-skia
