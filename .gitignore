@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+
+rhwp/target/
+rhwp/pkg/
+
+rest_api/.venv/
+rest_api/__pycache__/
+
+/tmp/
