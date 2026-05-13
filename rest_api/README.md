@@ -34,11 +34,11 @@ docker run --rm -p 8001:8001 hwprest:latest
 ## 로컬 실행
 
 ```bash
-cd /home/youlsa/hwp_converter/rhwp
+cd ../rhwp
 . "$HOME/.cargo/env"
 cargo build --release --features native-skia --target-dir /tmp/rhwp-target
 
-cd /home/youlsa/hwp_converter/rest_api
+cd ../rest_api
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
